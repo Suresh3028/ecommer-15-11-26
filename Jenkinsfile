@@ -9,6 +9,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 echo 'Source code checked out from GitHub'
@@ -46,30 +47,47 @@ pipeline {
             }
         }
 
-                stage('Package') {
+        stage('Package') {
             steps {
                 sh 'mvn -B package'
                 archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
             }
         }
 
-        // Docker stage must be here
         stage('Docker Build') {
             steps {
                 sh '''
-                    docker build -t ecommerce-app:v1 .
+                    docker build -t ecommerce-app:${BUILD_NUMBER} .
                     docker images ecommerce-app
                 '''
             }
         }
-    }  // closes stages
+
+        stage('Docker Deploy') {
+            steps {
+                sh '''
+                    docker rm -f ecommerce-container || true
+
+                    docker run --name ecommerce-container \
+                        ecommerce-app:${BUILD_NUMBER}
+
+                    echo "Container deployment completed"
+
+                    docker ps -a --filter name=ecommerce-container
+
+                    docker logs ecommerce-container
+                '''
+            }
+        }
+
+    }
 
     post {
         success {
             echo 'Build completed successfully!'
         }
         failure {
-            echo 'Build failed. Check console output.'
+            echo 'Build failed. Check the console output.'
         }
     }
-}  // closes pipeline
+}
