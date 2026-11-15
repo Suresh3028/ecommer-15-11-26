@@ -46,28 +46,30 @@ pipeline {
             }
         }
 
-        stage('Package') {
+                stage('Package') {
             steps {
                 sh 'mvn -B package'
                 archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
             }
         }
-    }
-    stage('Docker Build') {
-    steps {
-        sh '''
-            docker build -t ecommerce-app:v1 .
-            docker images ecommerce-app
-        '''
-    }
-}
+
+        // Docker stage must be here
+        stage('Docker Build') {
+            steps {
+                sh '''
+                    docker build -t ecommerce-app:v1 .
+                    docker images ecommerce-app
+                '''
+            }
+        }
+    }  // closes stages
 
     post {
         success {
             echo 'Build completed successfully!'
         }
         failure {
-            echo 'Build failed. Check the console output.'
+            echo 'Build failed. Check console output.'
         }
     }
-}
+}  // closes pipeline
