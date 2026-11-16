@@ -9,8 +9,10 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = 'ecommerce-app'
-        DOCKERHUB_USER = 'suresh2830'
+          JAVA17_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
+          PATH = "${JAVA17_HOME}/bin:${env.PATH}"
+          IMAGE_NAME = 'ecommerce-app'
+          DOCKERHUB_USER = 'suresh2830'
     }
 
     stages {
@@ -28,9 +30,12 @@ pipeline {
         stage('Environment Check') {
             steps {
                 sh '''
-                    echo "JAVA_HOME=$JAVA_HOME"
+                    echo "Jenkins Java:"
                     java -version
+
+                    echo "Maven Java:"
                     mvn -version
+
                     docker --version
                 '''
             }
