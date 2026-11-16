@@ -161,7 +161,7 @@ pipeline {
                     echo "Checking application health..."
 
                     for i in $(seq 1 10); do
-                        if curl -fsS http://localhost:8080/; then
+                        if curl -fsS http://localhost:8081/; then
                             echo "Application is healthy"
                             exit 0
                         fi
