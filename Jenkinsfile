@@ -2,10 +2,17 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKERHUB_USER = 'suresh2830'
+        IMAGE_NAME = 'ecommerce-app'
+        CONTAINER_NAME = 'ecommerce-container'
+    }
+
     options {
         timestamps()
         timeout(time: 20, unit: 'MINUTES')
         disableConcurrentBuilds()
+        skipDefaultCheckout(true)
     }
 
     environment {
@@ -20,9 +27,14 @@ pipeline {
         // Stage 1: GitHub Checkout
         stage('Checkout') {
             steps {
+<<<<<<< HEAD
                 git branch: 'master',
                     credentialsId: 'github-ssh-key',
                     url: 'git@github.com:Suresh3028/ecommer-15-11-26.git'
+=======
+                checkout scm
+                echo 'Source code checked out from GitHub'
+>>>>>>> 44e958d (deploy docker)
             }
         }
 
@@ -75,8 +87,12 @@ pipeline {
             steps {
                 sh '''
                     docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+<<<<<<< HEAD
                     docker tag ${IMAGE_NAME}:${BUILD_NUMBER} \
                         ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
+=======
+                    docker images ${IMAGE_NAME}
+>>>>>>> 44e958d (deploy docker)
                 '''
             }
         }
@@ -96,6 +112,15 @@ pipeline {
                         echo "$DH_TOKEN" | docker login \
                             -u "$DH_USER" --password-stdin
 
+<<<<<<< HEAD
+=======
+                        docker tag ${IMAGE_NAME}:${BUILD_NUMBER} \
+                            ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
+
+                        echo "$DOCKERHUB_TOKEN" | docker login \
+                            -u "$DOCKERHUB_USER" --password-stdin
+
+>>>>>>> 44e958d (deploy docker)
                         docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
 
                         docker logout
@@ -109,6 +134,7 @@ pipeline {
             steps {
                 sh '''
                     docker pull ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
+<<<<<<< HEAD
 
                     docker rm -f ecommerce-container || true
 
@@ -118,6 +144,43 @@ pipeline {
                         ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
 
                     docker ps --filter name=ecommerce-container
+=======
+
+                    docker rm -f ${CONTAINER_NAME} || true
+
+                    docker run -d \
+                        --name ${CONTAINER_NAME} \
+                        --restart unless-stopped \
+                        -p 8080:8080 \
+                        ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
+
+                    echo "Container deployment completed"
+
+                    docker ps -a --filter name=${CONTAINER_NAME}
+                '''
+            }
+        }
+
+        // Stage 9: Deployment Health Check
+        stage('Deployment Health Check') {
+            steps {
+                sh '''
+                    echo "Checking application health..."
+
+                    for i in $(seq 1 10); do
+                        if curl -fsS http://localhost:8080/; then
+                            echo "Application is healthy!"
+                            exit 0
+                        fi
+
+                        echo "Waiting for application..."
+                        sleep 5
+                    done
+
+                    echo "Application health check failed"
+                    docker logs ${CONTAINER_NAME}
+                    exit 1
+>>>>>>> 44e958d (deploy docker)
                 '''
             }
         }
