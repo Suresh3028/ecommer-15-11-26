@@ -15,26 +15,13 @@ pipeline {
         skipDefaultCheckout(true)
     }
 
-    environment {
-          JAVA17_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
-          PATH = "${JAVA17_HOME}/bin:${env.PATH}"
-          IMAGE_NAME = 'ecommerce-app'
-          DOCKERHUB_USER = 'suresh2830'
-    }
-
     stages {
 
-        // Stage 1: GitHub Checkout
+        // Stage 1: Checkout
         stage('Checkout') {
             steps {
-<<<<<<< HEAD
-                git branch: 'master',
-                    credentialsId: 'github-ssh-key',
-                    url: 'git@github.com:Suresh3028/ecommer-15-11-26.git'
-=======
                 checkout scm
                 echo 'Source code checked out from GitHub'
->>>>>>> 44e958d (deploy docker)
             }
         }
 
@@ -42,12 +29,13 @@ pipeline {
         stage('Environment Check') {
             steps {
                 sh '''
-                    echo "Jenkins Java:"
+                    echo "JAVA_HOME=$JAVA_HOME"
+                    which java
                     java -version
-
-                    echo "Maven Java:"
+                    which javac
+                    javac -version
+                    which mvn
                     mvn -version
-
                     docker --version
                 '''
             }
@@ -76,9 +64,10 @@ pipeline {
         // Stage 5: Package
         stage('Package') {
             steps {
-                sh 'mvn -B package -DskipTests'
+                sh 'mvn -B package'
+
                 archiveArtifacts artifacts: 'target/*.jar',
-                                 fingerprint: true
+                    fingerprint: true
             }
         }
 
@@ -87,12 +76,7 @@ pipeline {
             steps {
                 sh '''
                     docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
-<<<<<<< HEAD
-                    docker tag ${IMAGE_NAME}:${BUILD_NUMBER} \
-                        ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
-=======
                     docker images ${IMAGE_NAME}
->>>>>>> 44e958d (deploy docker)
                 '''
             }
         }
@@ -100,27 +84,20 @@ pipeline {
         // Stage 7: Docker Hub Push
         stage('Docker Push') {
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'dockerhub-creds',
-                        usernameVariable: 'DH_USER',
-                        passwordVariable: 'DH_TOKEN'
-                    )
-                ]) {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKERHUB_USER',
+                    passwordVariable: 'DOCKERHUB_TOKEN'
+                )]) {
                     sh '''
                         set +x
-                        echo "$DH_TOKEN" | docker login \
-                            -u "$DH_USER" --password-stdin
 
-<<<<<<< HEAD
-=======
                         docker tag ${IMAGE_NAME}:${BUILD_NUMBER} \
                             ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
 
                         echo "$DOCKERHUB_TOKEN" | docker login \
                             -u "$DOCKERHUB_USER" --password-stdin
 
->>>>>>> 44e958d (deploy docker)
                         docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
 
                         docker logout
@@ -134,17 +111,6 @@ pipeline {
             steps {
                 sh '''
                     docker pull ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
-<<<<<<< HEAD
-
-                    docker rm -f ecommerce-container || true
-
-                    docker run -d \
-                        --name ecommerce-container \
-                        -p 8080:8080 \
-                        ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
-
-                    docker ps --filter name=ecommerce-container
-=======
 
                     docker rm -f ${CONTAINER_NAME} || true
 
@@ -154,7 +120,7 @@ pipeline {
                         -p 8080:8080 \
                         ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
 
-                    echo "Container deployment completed"
+                    echo "Deployment completed"
 
                     docker ps -a --filter name=${CONTAINER_NAME}
                 '''
@@ -168,6 +134,7 @@ pipeline {
                     echo "Checking application health..."
 
                     for i in $(seq 1 10); do
+
                         if curl -fsS http://localhost:8080/; then
                             echo "Application is healthy!"
                             exit 0
@@ -178,9 +145,10 @@ pipeline {
                     done
 
                     echo "Application health check failed"
+
                     docker logs ${CONTAINER_NAME}
+
                     exit 1
->>>>>>> 44e958d (deploy docker)
                 '''
             }
         }
