@@ -4,7 +4,6 @@ pipeline {
 
     environment {
         JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'
-        PATH = "/usr/lib/jvm/java-21-openjdk-amd64/bin:${env.PATH}"
         DOCKERHUB_USER = 'suresh2830'
         IMAGE_NAME = 'ecommerce-app'
         CONTAINER_NAME = 'ecommerce-container'
@@ -12,7 +11,7 @@ pipeline {
 
     options {
         timestamps()
-        timeout(time: 20, unit: 'MINUTES')
+        timeout(time: 30, unit: 'MINUTES')
         disableConcurrentBuilds()
         skipDefaultCheckout(true)
     }
@@ -23,7 +22,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                echo 'Source code checked out from GitHub'
+                echo 'Source code checked out successfully'
             }
         }
 
@@ -32,11 +31,8 @@ pipeline {
             steps {
                 sh '''
                     echo "JAVA_HOME=$JAVA_HOME"
-                    which java
                     java -version
-                    which javac
                     javac -version
-                    which mvn
                     mvn -version
                     docker --version
                 '''
@@ -77,7 +73,9 @@ pipeline {
         stage('Docker Build') {
             steps {
                 sh '''
-                    docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+                    docker build \
+                        -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+
                     docker images ${IMAGE_NAME}
                 '''
             }
@@ -88,19 +86,22 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
-                    usernameVariable: 'DOCKERHUB_USER',
-                    passwordVariable: 'DOCKERHUB_TOKEN'
+                    usernameVariable: 'REGISTRY_USER',
+                    passwordVariable: 'REGISTRY_TOKEN'
                 )]) {
                     sh '''
                         set +x
 
-                        docker tag ${IMAGE_NAME}:${BUILD_NUMBER} \
-                            ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
+                        docker tag \
+                            ${IMAGE_NAME}:${BUILD_NUMBER} \
+                            ${REGISTRY_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
 
-                        echo "$DOCKERHUB_TOKEN" | docker login \
-                            -u "$DOCKERHUB_USER" --password-stdin
+                        echo "$REGISTRY_TOKEN" | docker login \
+                            -u "$REGISTRY_USER" \
+                            --password-stdin
 
-                        docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
+                        docker push \
+                            ${REGISTRY_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
 
                         docker logout
                     '''
@@ -111,9 +112,26 @@ pipeline {
         // Stage 8: Docker Deploy
         stage('Docker Deploy') {
             steps {
-                sh '''
-                    docker pull ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'REGISTRY_USER',
+                    passwordVariable: 'REGISTRY_TOKEN'
+                )]) {
+                    sh '''
+                        set +x
 
+                        echo "$REGISTRY_TOKEN" | docker login \
+                            -u "$REGISTRY_USER" \
+                            --password-stdin
+
+                        docker pull \
+                            ${REGISTRY_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
+
+                        docker logout
+                    '''
+                }
+
+                sh '''
                     docker rm -f ${CONTAINER_NAME} || true
 
                     docker run -d \
@@ -122,8 +140,15 @@ pipeline {
                         -p 8080:8080 \
                         ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
 
-                    echo "Deployment completed"
+                    sleep 5
 
+                    if [ "$(docker inspect -f '{{.State.Running}}' ${CONTAINER_NAME})" != "true" ]; then
+                        echo "Container failed to start"
+                        docker logs ${CONTAINER_NAME}
+                        exit 1
+                    fi
+
+                    echo "Container is running successfully"
                     docker ps -a --filter name=${CONTAINER_NAME}
                 '''
             }
@@ -136,9 +161,8 @@ pipeline {
                     echo "Checking application health..."
 
                     for i in $(seq 1 10); do
-
                         if curl -fsS http://localhost:8080/; then
-                            echo "Application is healthy!"
+                            echo "Application is healthy"
                             exit 0
                         fi
 
@@ -146,10 +170,8 @@ pipeline {
                         sleep 5
                     done
 
-                    echo "Application health check failed"
-
+                    echo "Health check failed"
                     docker logs ${CONTAINER_NAME}
-
                     exit 1
                 '''
             }
