@@ -137,7 +137,7 @@ pipeline {
                     docker run -d \
                         --name ${CONTAINER_NAME} \
                         --restart unless-stopped \
-                        -p 8080:8080 \
+                        -p 8081:8080 \
                         ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
 
                     sleep 5
